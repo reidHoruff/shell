@@ -18,12 +18,12 @@ set nosplitright
 wincmd t
 set winheight=1 winwidth=1
 argglobal
-let s:l = 18 - ((17 * winheight(0) + 26) / 53)
+let s:l = 60 - ((41 * winheight(0) + 26) / 53)
 if s:l < 1 | let s:l = 1 | endif
 exe s:l
 normal! zt
-18
-normal! 0
+60
+normal! 056|
 if exists('s:wipebuf')
   silent exe 'bwipe ' . s:wipebuf
 endif

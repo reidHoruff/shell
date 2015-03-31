@@ -8,11 +8,12 @@
 #include <sys/types.h> 
 #include <unistd.h> 
 #include <string.h>
+#include <sys/wait.h>
 
 #define WRITE_PIPE 1
 #define READ_PIPE 0
  
-int run_command(char** arg_list, int read_fd, int write_fd) {
+void run_command(char** arg_list, int read_fd, int write_fd) {
   pid_t child_pid; 
  
   child_pid = fork(); 
@@ -21,14 +22,14 @@ int run_command(char** arg_list, int read_fd, int write_fd) {
     if (read_fd != STDIN_FILENO){
       if(dup2(read_fd, STDIN_FILENO) != STDIN_FILENO){
 	fprintf(stderr, "Error: failed to redirect stdin\n");
-        return -1;
+        return;
       }
     }
  
     if (write_fd != STDOUT_FILENO){
       if(dup2(write_fd, STDOUT_FILENO) != STDOUT_FILENO){
         fprintf(stderr, "Error: failed to redirect stdout\n");
-        return -1;
+        return;
       }
     }
 
@@ -43,7 +44,6 @@ int run_command(char** arg_list, int read_fd, int write_fd) {
      */
     int return_status;    
     waitpid(child_pid, &return_status, 0);
-    return child_pid; 
   } 
 } 
 
@@ -57,7 +57,7 @@ typedef struct {
  */
 void copy_cmd(char* buf, int start, int end, char** command_list) {
   // allocate enough room for string and null termination
-  *command_list = (char*)malloc(sizeof(char) * (end-start+1));
+  *command_list = (char*)calloc(end-start+1, sizeof(char));
   memcpy(*command_list, buf+start, end-start);
 }
 

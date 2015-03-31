@@ -1,1 +1,1 @@
-gcc main.c -o shell && ./shell
+gcc main.c -Wall -o shell && ./shell
