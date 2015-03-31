@@ -18,6 +18,8 @@ typedef int bool;
 
 #define WRITE_PIPE 1
 #define READ_PIPE 0
+
+#define INPUT_BUFFER_LEN 1000
  
 void run_command(char** arg_list, int read_fd, int write_fd) {
   pid_t child_pid; 
@@ -58,6 +60,21 @@ typedef struct {
   int length;
 } pipe_chain;
 
+/**
+ * strings were allocated along command_list
+ * and must be manually freed before pipe_chain
+ * can be freed.
+ */
+void free_pipe_chain(pipe_chain* pc) {
+  int i, j;
+  for (i = 0; i < pc->length; i++) {
+    for (j = 0; pc->command_list[i][j]; j++) {
+      free(pc->command_list[i][j]);
+    }
+  }
+  free(pc);
+}
+
 /*
  * copies portion of stdin to correct location in command list
  */
@@ -96,7 +113,7 @@ pipe_chain* parse_input(char buf[]) {
           copy_cmd(buf, word_start, i, &pc->command_list[cmd_index][arg_index]);
           arg_index++;
         }
-        in_word = true;
+        in_word = false;
         break;
 
       case '|':
@@ -142,8 +159,14 @@ pipe_chain* parse_input(char buf[]) {
  
 int main () {
 
+  /*
+   * input buffer
+   */
+  char buf[INPUT_BUFFER_LEN];
+
   while (true) {
-    /** record stdin and stdout so that they may
+    /** 
+     * record stdin and stdout so that they may
      * be restored after the child finished executing
      */
     int regular_stdout = dup(STDOUT_FILENO);
@@ -153,14 +176,13 @@ int main () {
      * print prompt and read stdin
      */
     printf("os$ ");
-    char buf[1000];
-    fgets(buf, 999, stdin);
+    fgets(buf, INPUT_BUFFER_LEN, stdin);
     if (strcmp(buf, "exit\n") == 0) {
       exit(1);
     } 
 
     /*
-     * parse 
+     * parse input 
      */
     pipe_chain* pc = parse_input(buf);
     if (pc == NULL) {
@@ -181,10 +203,16 @@ int main () {
       int write_fd = STDOUT_FILENO;
       char **command = pc->command_list[i];
 
+      /*
+       * if there are multiple programs and we're not executing the last one.
+       * then:
+       * Create pipe, execute current program with stdout=pipe intput,
+       * set pipe output to be next stdin.
+       */
       if (pipe_length > 1 && i < pipe_length-1) {
         int _pipe[2];
         if (pipe(_pipe) != 0) {
-          fprintf(stderr, "Error: unable to pipe command\n");
+          fprintf(stderr, "Error: unable to create pipe.\n");
           return -1;
         }
 
@@ -204,6 +232,8 @@ int main () {
     dup2(regular_stdin, STDIN_FILENO);
     close(regular_stdout);
     close(regular_stdin);
+
+    free_pipe_chain(pc);
   }
 
   return 0; 
