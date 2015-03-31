@@ -1,6 +1,8 @@
 /**
  * Reid Horuff
  * 3-30-2015
+ *
+ * compile with $./make.sh
  */
 
 #include <stdio.h> 
@@ -9,6 +11,10 @@
 #include <unistd.h> 
 #include <string.h>
 #include <sys/wait.h>
+
+typedef int bool;
+#define true 1
+#define false 0
 
 #define WRITE_PIPE 1
 #define READ_PIPE 0
@@ -21,7 +27,7 @@ void run_command(char** arg_list, int read_fd, int write_fd) {
   if (child_pid == 0){
     if (read_fd != STDIN_FILENO){
       if(dup2(read_fd, STDIN_FILENO) != STDIN_FILENO){
-	fprintf(stderr, "Error: failed to redirect stdin\n");
+        fprintf(stderr, "Error: failed to redirect stdin\n");
         return;
       }
     }
@@ -67,25 +73,18 @@ void copy_cmd(char* buf, int start, int end, char** command_list) {
  *
  * returns NULL if parse fails.
  */
-pipe_chain* get_input() {
+pipe_chain* parse_input(char buf[]) {
   pipe_chain* pc = (pipe_chain*)malloc(sizeof(pipe_chain));
-
-  /*
-   * read from input
-   */
-  printf("OS$ ");
-  char buf[1000];
-  fgets(buf, 999, stdin);
 
   int cmd_index = 0;
   int arg_index = 0;
 
   int i = 0;
-  int in_word = 0;
-  int word_start = 0;
-  int eol = 0;
-  int lonely_pipe = 0;
 
+  bool in_word = false;
+  bool eol = false;
+  bool lonely_pipe = false;
+  int word_start = 0;
 
   /*
    * parse input line
@@ -97,18 +96,19 @@ pipe_chain* get_input() {
           copy_cmd(buf, word_start, i, &pc->command_list[cmd_index][arg_index]);
           arg_index++;
         }
-        in_word = 0;
+        in_word = true;
         break;
 
       case '|':
+      case '>':
         if (in_word) {
           copy_cmd(buf, word_start, i, &pc->command_list[cmd_index][arg_index]);
           arg_index++;
         }
         cmd_index++;
         arg_index = 0;
-        in_word = 0;
-        lonely_pipe = 1;
+        in_word = false;
+        lonely_pipe = true;
         break;
 
       case 0:
@@ -117,15 +117,15 @@ pipe_chain* get_input() {
           copy_cmd(buf, word_start, i, &pc->command_list[cmd_index][arg_index]);
           arg_index++;
         }
-        in_word = 0;
+        in_word = false;
         eol = 1;
         break;
 
       default:
         if (!in_word) {
           word_start = i;
-          in_word = 1;
-          lonely_pipe = 0;
+          in_word = true;
+          lonely_pipe = false;
         }
     }
     i++;
@@ -142,7 +142,7 @@ pipe_chain* get_input() {
  
 int main () {
 
-  while (1) {
+  while (true) {
     /** record stdin and stdout so that they may
      * be restored after the child finished executing
      */
@@ -150,11 +150,19 @@ int main () {
     int regular_stdin = dup(STDIN_FILENO);
 
     /*
-     * parse stdin and create a list
-     * of commands and arguments
+     * print prompt and read stdin
      */
-    pipe_chain* pc = get_input();
+    printf("os$ ");
+    char buf[1000];
+    fgets(buf, 999, stdin);
+    if (strcmp(buf, "exit\n") == 0) {
+      exit(1);
+    } 
 
+    /*
+     * parse 
+     */
+    pipe_chain* pc = parse_input(buf);
     if (pc == NULL) {
       fprintf(stderr, "Error: failed to parse input.\n");
       continue;
@@ -174,14 +182,14 @@ int main () {
       char **command = pc->command_list[i];
 
       if (pipe_length > 1 && i < pipe_length-1) {
-        int fds[2];
-        if (pipe(fds) != 0) {
+        int _pipe[2];
+        if (pipe(_pipe) != 0) {
           fprintf(stderr, "Error: unable to pipe command\n");
           return -1;
         }
 
-        next_read_fd = fds[READ_PIPE];
-        write_fd = fds[WRITE_PIPE];
+        next_read_fd = _pipe[READ_PIPE];
+        write_fd = _pipe[WRITE_PIPE];
 
       }
 
