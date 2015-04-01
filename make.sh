@@ -1,1 +1,1 @@
-gcc main.c -Wall -o shell && ./shell
+gcc main.c -Wall -o sh4352 && ./sh4352

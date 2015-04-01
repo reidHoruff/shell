@@ -26,6 +26,9 @@ void run_command(char** arg_list, int read_fd, int write_fd) {
  
   child_pid = fork(); 
  
+  /*
+   * this is the child executing
+   */
   if (child_pid == 0){
     if (read_fd != STDIN_FILENO){
       if(dup2(read_fd, STDIN_FILENO) != STDIN_FILENO){
@@ -43,7 +46,7 @@ void run_command(char** arg_list, int read_fd, int write_fd) {
 
     if (execvp (arg_list[0], arg_list) == -1) {
       fprintf (stderr, "command could not be found or failed to execute\n");
-      abort(); 
+      _exit(-1);
     }
   } else {
     /*
@@ -175,7 +178,7 @@ int main () {
     /*
      * print prompt and read stdin
      */
-    printf("os$ ");
+    printf("sh4352$ ");
     fgets(buf, INPUT_BUFFER_LEN, stdin);
     if (strcmp(buf, "exit\n") == 0) {
       exit(1);
@@ -233,7 +236,9 @@ int main () {
     close(regular_stdout);
     close(regular_stdin);
 
+    /*
     free_pipe_chain(pc);
+     */
   }
 
   return 0; 
